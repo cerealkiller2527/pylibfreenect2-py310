@@ -8,6 +8,16 @@
 
 This is an enhanced version of [pylibfreenect2](https://github.com/r9y9/pylibfreenect2) with Python 3.10+ compatibility, improved Windows support, and robust cross-platform builds. Supports CUDA, OpenCL, and OpenGL pipelines for GPU-accelerated Kinect v2 processing.
 
+## 🎯 Part of the GPU-Accelerated Kinect v2 Stack
+
+This is the **Python bindings layer** of the complete Kinect v2 development stack:
+
+| Layer | Project | Description |
+|-------|---------|-------------|
+| **📦 Foundation** | [libfreenect2-modern](https://github.com/cerealkiller2527/libfreenect2-modern) | Core C++ driver with GPU pipelines |
+| **🐍 Python Bindings** | **pylibfreenect2-py310** (this project) | Python 3.10+ interface with automatic pipeline selection |
+| **🔧 High-Level API** | [kinect-toolbox-py310](https://github.com/cerealkiller2527/kinect-toolbox-py310) | Easy-to-use Python wrapper with utilities |
+
 ## ⚠️ Important Disclaimers
 
 ### Build Complexity Warning
@@ -39,6 +49,8 @@ Frame rates vary significantly by GPU pipeline:
 **You MUST have libfreenect2 built and installed first.** Follow the comprehensive guide:
 
 🔗 **[libfreenect2-modern Installation Guide](https://github.com/cerealkiller2527/libfreenect2-modern)**
+
+**Enhanced by [Madhav Lodha](https://madhavlodha.com)** - Check out my portfolio at [madhavlodha.com](https://madhavlodha.com) for more projects!
 
 This guide covers:
 - Building libfreenect2 from source with GPU support
@@ -382,11 +394,24 @@ Contributions welcome! This project specifically focuses on:
 - Cross-platform reliability
 - Better error messages and debugging
 
-## Related Projects
+## 🔗 Related Projects
 
-- **[libfreenect2-modern](https://github.com/cerealkiller2527/libfreenect2-modern)** - Comprehensive libfreenect2 build guide
-- **[Original pylibfreenect2](https://github.com/r9y9/pylibfreenect2)** - Original Python 2.7-3.5 version
-- **[OpenKinect/libfreenect2](https://github.com/OpenKinect/libfreenect2)** - Core C++ library
+### This Stack
+- **📦 [libfreenect2-modern](https://github.com/cerealkiller2527/libfreenect2-modern)** - Foundation C++ library (install this first!)
+- **🔧 [kinect-toolbox-py310](https://github.com/cerealkiller2527/kinect-toolbox-py310)** - High-level Python API built on this library
+
+### Original Projects  
+- **[OpenKinect/libfreenect2](https://github.com/OpenKinect/libfreenect2)** - Original core C++ library
+- **[r9y9/pylibfreenect2](https://github.com/r9y9/pylibfreenect2)** - Original Python bindings (2.7-3.5)
+
+### 🚀 Next Steps: High-Level API
+
+For easier Kinect development, install the high-level wrapper:
+```bash
+pip install git+https://github.com/cerealkiller2527/kinect-toolbox-py310.git
+```
+
+This automatically installs pylibfreenect2-py310 as a dependency and provides a simple, OpenCV-like interface.
 
 ## License
 
