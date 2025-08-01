@@ -1,0 +1,66 @@
+[build-system]
+requires = [
+    "setuptools>=64",
+    "wheel", 
+    "cython>=0.29.36",
+    "numpy>=1.19.0",
+    "packaging"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pylibfreenect2-py310" 
+version = "0.1.6"
+description = "Python 3.10+ compatible interface for libfreenect2 with GPU acceleration"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Ryuichi Yamamoto (original)", email = "zryuichi@gmail.com"},
+    {name = "Enhanced for Python 3.10+"}
+]
+maintainers = [
+    {name = "Python 3.10+ Fork Maintainer", email = "your.email@example.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research", 
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS", 
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11", 
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Cython",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+    "Topic :: Multimedia :: Video :: Capture",
+]
+keywords = ["pylibfreenect2", "libfreenect2", "freenect2", "kinect", "kinect-v2", "gpu-acceleration", "cuda", "opencl"]
+dependencies = [
+    "numpy>=1.19.0",
+    "packaging",
+]
+requires-python = ">=3.10"
+
+[project.urls]
+Homepage = "https://github.com/cerealkiller2527/pylibfreenect2-py310"
+Repository = "https://github.com/cerealkiller2527/pylibfreenect2-py310.git"
+"Bug Tracker" = "https://github.com/cerealkiller2527/pylibfreenect2-py310/issues"
+"Original Project" = "https://github.com/r9y9/pylibfreenect2"
+
+[project.optional-dependencies]
+docs = ["numpydoc", "sphinx_rtd_theme", "seaborn"]
+test = ["nose", "pytest", "coverage"]
+develop = ["cython>=0.29.36"]
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+exclude = ["tests*", "examples*"]
