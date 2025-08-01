@@ -105,4 +105,19 @@ class LoggerLevel(IntEnum):
     Info = 3
     Debug = 4
 
+# Windows DLL loading for libfreenect2
+import sys
+import os
+if sys.platform == "win32":
+    # Add libfreenect2 DLL directory to PATH for Windows
+    prefix = os.environ.get("LIBFREENECT2_INSTALL_PREFIX")
+    if prefix:
+        dll_path = os.path.join(prefix, "bin")
+        if os.path.exists(dll_path):
+            # For Python 3.8+, use os.add_dll_directory
+            if hasattr(os, 'add_dll_directory'):
+                os.add_dll_directory(dll_path)
+            # Also add to PATH as fallback
+            os.environ["PATH"] = dll_path + os.pathsep + os.environ.get("PATH", "")
+
 from .libfreenect2 import *

@@ -3,7 +3,10 @@
 from __future__ import with_statement, print_function, absolute_import
 
 from setuptools import setup, find_packages, Extension
-from distutils.version import LooseVersion
+try:
+    from packaging.version import Version as LooseVersion
+except ImportError:
+    from distutils.version import LooseVersion
 
 import platform
 
@@ -38,7 +41,7 @@ min_cython_ver = '0.21.0'
 try:
     import Cython
     ver = Cython.__version__
-    _CYTHON_INSTALLED = ver >= LooseVersion(min_cython_ver)
+    _CYTHON_INSTALLED = LooseVersion(ver) >= LooseVersion(min_cython_ver)
 except ImportError:
     _CYTHON_INSTALLED = False
 
@@ -89,6 +92,9 @@ def has_define_in_config(key, close_fds=None):
 if platform.system() == "Darwin":
     extra_compile_args = ["-std=c++11", "-stdlib=libc++",
                           "-mmacosx-version-min=10.8"]
+elif platform.system() == "Windows":
+    # Windows Visual Studio compiler flags
+    extra_compile_args = ["/std:c++11", "/EHsc"]
 else:
     # should work with Ubuntu 14.04 with anaconda python3 instaleld
     extra_compile_args = ["-std=c++11"]
