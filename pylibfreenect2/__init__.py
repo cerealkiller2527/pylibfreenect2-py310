@@ -13,7 +13,11 @@ from __future__ import division, print_function, absolute_import
 
 import pkg_resources
 
-__version__ = pkg_resources.get_distribution('pylibfreenect2').version
+try:
+    __version__ = pkg_resources.get_distribution('pylibfreenect2-py310').version
+except pkg_resources.DistributionNotFound:
+    # Fallback for development installations
+    __version__ = "0.1.6"
 
 from enum import IntEnum
 
