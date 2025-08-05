@@ -161,7 +161,8 @@ from libcpp.string cimport string
 from libcpp.map cimport map
 
 from libcpp.cast cimport reinterpret_cast
-from libc.stdint cimport uint8_t
+from libc.stdint cimport uint8_t, uint32_t
+from libc.string cimport memcpy
 
 # Workaround for use of pointer type in reinterpret_cast
 # https://groups.google.com/forum/#!msg/cython-users/FgEf7Vrx4AM/dm7WY_bMCAAJ
@@ -390,6 +391,87 @@ cdef class Frame:
                 assert False
         else:
             return self.__asarray(dtype)
+
+    def asarray_optimized(self, output_buffer=None):
+        """Optimized frame to numpy array conversion that minimizes GIL holding time.
+        
+        For color frames: Converts BGRX to BGR format directly, avoiding the slow
+        numpy slice operation that holds the GIL.
+        
+        For depth/IR frames: Uses fast memcpy with GIL released.
+        
+        Parameters
+        ----------
+        output_buffer : numpy.ndarray, optional
+            Pre-allocated buffer to write data into. If None, allocates new array.
+            Must have correct shape and dtype:
+            - Color: (height, width, 3) with dtype=uint8
+            - Depth/IR: (height, width) with dtype=float32
+            
+        Returns
+        -------
+        array : numpy.ndarray
+            Frame data. For color, returns BGR (3 channels) instead of BGRX (4 channels).
+            
+        Examples
+        --------
+        # Pre-allocate buffers for maximum performance
+        color_buffer = np.empty((1080, 1920, 3), dtype=np.uint8)
+        depth_buffer = np.empty((424, 512), dtype=np.float32)
+        
+        # In capture loop
+        color_frame.asarray_optimized(color_buffer)
+        depth_frame.asarray_optimized(depth_buffer)
+        """
+        cdef int width = self.ptr.width
+        cdef int height = self.ptr.height
+        cdef unsigned char* src_data = self.ptr.data
+        cdef unsigned char* dst_data
+        cdef float* src_float
+        cdef float* dst_float
+        cdef int y, x, src_offset, dst_offset
+        cdef int total_pixels
+        
+        # Determine frame type and process accordingly
+        if self.frame_type == FrameType.Color or (self.frame_type < 0 and self.ptr.bytes_per_pixel == 4):
+            # Color frame: BGRX format (4 bytes per pixel)
+            if output_buffer is None:
+                output_buffer = np.empty((height, width, 3), dtype=np.uint8)
+            elif output_buffer.shape != (height, width, 3) or output_buffer.dtype != np.uint8:
+                raise ValueError(f"Color buffer must be shape ({height}, {width}, 3) with dtype=uint8")
+            
+            dst_data = <unsigned char*>np.PyArray_DATA(output_buffer)
+            
+            # Process with GIL released for better concurrency
+            with nogil:
+                # Optimized BGRX to BGR conversion
+                for y in range(height):
+                    src_offset = y * width * 4  # 4 bytes per pixel in source
+                    dst_offset = y * width * 3  # 3 bytes per pixel in destination
+                    
+                    for x in range(width):
+                        # Copy B, G, R components, skip alpha (X)
+                        dst_data[dst_offset + x*3] = src_data[src_offset + x*4]      # B
+                        dst_data[dst_offset + x*3 + 1] = src_data[src_offset + x*4 + 1]  # G
+                        dst_data[dst_offset + x*3 + 2] = src_data[src_offset + x*4 + 2]  # R
+                        # Skip src_data[src_offset + x*4 + 3] (alpha)
+            
+        else:
+            # Depth or IR frame: float32 format
+            if output_buffer is None:
+                output_buffer = np.empty((height, width), dtype=np.float32)
+            elif output_buffer.shape != (height, width) or output_buffer.dtype != np.float32:
+                raise ValueError(f"Depth/IR buffer must be shape ({height}, {width}) with dtype=float32")
+            
+            src_float = <float*>src_data
+            dst_float = <float*>np.PyArray_DATA(output_buffer)
+            total_pixels = width * height
+            
+            # Fast memory copy with GIL released
+            with nogil:
+                memcpy(dst_float, src_float, total_pixels * sizeof(float))
+        
+        return output_buffer
 
 cdef class FrameListener:
     cdef libfreenect2.FrameListener* listener_ptr_alias
@@ -662,6 +744,93 @@ cdef class SyncMultiFrameListener(FrameListener):
             FrameMap.
         """
         self.ptr.release(frame_map.internal_frame_map)
+
+    def waitForNewFrameOptimized(self, color_buffer=None, depth_buffer=None, ir_buffer=None, int milliseconds=100):
+        """Optimized frame capture that minimizes GIL holding time.
+        
+        This method:
+        1. Waits for frames with GIL released
+        2. Processes frames with minimal Python overhead
+        3. Uses pre-allocated buffers to avoid repeated allocations
+        4. Returns processed frames ready for use
+        
+        Parameters
+        ----------
+        color_buffer : numpy.ndarray, optional
+            Pre-allocated buffer for color data (1080, 1920, 3) uint8
+        depth_buffer : numpy.ndarray, optional
+            Pre-allocated buffer for depth data (424, 512) float32
+        ir_buffer : numpy.ndarray, optional
+            Pre-allocated buffer for IR data (424, 512) float32
+        milliseconds : int
+            Timeout in milliseconds
+            
+        Returns
+        -------
+        dict : Dictionary with keys 'color', 'depth', 'ir' containing frame data.
+               Values are None for disabled streams. Returns None on timeout.
+        
+        Examples
+        --------
+        # Pre-allocate buffers once
+        color_buf = np.empty((1080, 1920, 3), dtype=np.uint8)
+        depth_buf = np.empty((424, 512), dtype=np.float32)
+        
+        # In capture loop
+        frames = listener.waitForNewFrameOptimized(color_buf, depth_buf)
+        if frames:
+            process_frame(frames['color'], frames['depth'])
+        """
+        cdef map[libfreenect2.LibFreenect2FrameType, libfreenect2.Frame*] internal_frame_map
+        cdef bool success
+        cdef Frame frame_wrapper
+        
+        # Clear any previous frames
+        internal_frame_map.clear()
+        
+        # Wait for new frames with GIL released
+        with nogil:
+            success = self.ptr.waitForNewFrame(internal_frame_map, milliseconds)
+        
+        if not success:
+            return None
+        
+        # Process available frames
+        result = {}
+        
+        try:
+            # Process color frame if available
+            if internal_frame_map.count(libfreenect2.Color) > 0:
+                frame_wrapper = Frame(frame_type=FrameType.Color)
+                frame_wrapper.ptr = internal_frame_map[libfreenect2.Color]
+                frame_wrapper.take_ownership = False
+                result['color'] = frame_wrapper.asarray_optimized(color_buffer)
+            else:
+                result['color'] = None
+            
+            # Process depth frame if available
+            if internal_frame_map.count(libfreenect2.Depth) > 0:
+                frame_wrapper = Frame(frame_type=FrameType.Depth)
+                frame_wrapper.ptr = internal_frame_map[libfreenect2.Depth]
+                frame_wrapper.take_ownership = False
+                result['depth'] = frame_wrapper.asarray_optimized(depth_buffer)
+            else:
+                result['depth'] = None
+            
+            # Process IR frame if available
+            if internal_frame_map.count(libfreenect2.Ir) > 0:
+                frame_wrapper = Frame(frame_type=FrameType.Ir)
+                frame_wrapper.ptr = internal_frame_map[libfreenect2.Ir]
+                frame_wrapper.take_ownership = False
+                result['ir'] = frame_wrapper.asarray_optimized(ir_buffer)
+            else:
+                result['ir'] = None
+                
+        finally:
+            # Always release frames
+            self.ptr.release(internal_frame_map)
+        
+        return result
 
 
 cdef class ColorCameraParams:
