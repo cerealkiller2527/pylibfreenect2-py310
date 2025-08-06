@@ -91,13 +91,21 @@ def has_define_in_config(key, close_fds=None):
 
 if platform.system() == "Darwin":
     extra_compile_args = ["-std=c++11", "-stdlib=libc++",
-                          "-mmacosx-version-min=10.8"]
+                          "-mmacosx-version-min=10.8", "-O3"]
 elif platform.system() == "Windows":
-    # Windows Visual Studio compiler flags
-    extra_compile_args = ["/std:c++11", "/EHsc"]
+    # Windows Visual Studio compiler flags with safe optimizations
+    # /O2 = Maximum optimization for speed (keeps accuracy)
+    # /GL = Whole program optimization (optional, minor gains)
+    # /fp:precise = Default floating point model (accurate depth data)
+    extra_compile_args = ["/std:c++11", "/EHsc", "/O2", "/GL", "/fp:precise"]
+    extra_link_args = ["/LTCG"]  # Link time code generation
 else:
-    # should work with Ubuntu 14.04 with anaconda python3 instaleld
-    extra_compile_args = ["-std=c++11"]
+    # Linux/Unix with safe optimizations
+    # -O3 = Maximum optimization
+    # -march=native = Use CPU-specific instructions
+    # Note: Removed -ffast-math for accurate depth data
+    extra_compile_args = ["-std=c++11", "-O3", "-march=native"]
+    extra_link_args = []
 
 ext_modules = cythonize(
     [Extension(
@@ -110,7 +118,7 @@ ext_modules = cythonize(
         library_dirs=[libfreenect2_library_path],
         libraries=["freenect2"],
         extra_compile_args=extra_compile_args,
-        extra_link_args=[],
+        extra_link_args=extra_link_args if 'extra_link_args' in locals() else [],
         language="c++")],
     compile_time_env={
         "LIBFREENECT2_WITH_OPENGL_SUPPORT":

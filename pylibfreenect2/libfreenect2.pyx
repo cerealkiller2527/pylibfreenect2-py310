@@ -1,5 +1,7 @@
 # coding: utf-8
 # cython: boundscheck=True, wraparound=True
+# cython: language_level=3
+# NOTE: Global bounds checking kept for safety. Selective optimization used in hot paths.
 
 """
 API
@@ -164,6 +166,9 @@ from libcpp.cast cimport reinterpret_cast
 from libc.stdint cimport uint8_t, uint32_t
 from libc.string cimport memcpy
 
+# Import Cython optimization decorators
+cimport cython
+
 # Workaround for use of pointer type in reinterpret_cast
 # https://groups.google.com/forum/#!msg/cython-users/FgEf7Vrx4AM/dm7WY_bMCAAJ
 ctypedef uint8_t* uint8_pt
@@ -309,6 +314,8 @@ cdef class Frame:
         """Same as ``libfreenect2::Frame::gamma``"""
         return self.ptr.gamma
 
+    @cython.boundscheck(False)  # Safe: shape from hardware constants
+    @cython.wraparound(False)
     cdef __uint8_data(self):
         cdef np.npy_intp shape[3]
         shape[0] = <np.npy_intp> self.ptr.height
@@ -319,6 +326,8 @@ cdef class Frame:
 
         return array
 
+    @cython.boundscheck(False)  # Safe: shape from hardware constants
+    @cython.wraparound(False)
     cdef __float32_data(self):
         cdef np.npy_intp shape[2]
         shape[0] = <np.npy_intp> self.ptr.height
@@ -392,6 +401,9 @@ cdef class Frame:
         else:
             return self.__asarray(dtype)
 
+    @cython.boundscheck(False)  # Safe: bounds validated before loops
+    @cython.wraparound(False)   # Safe: no negative indexing used
+    @cython.cdivision(True)     # Safe: no division by zero possible
     def asarray_optimized(self, output_buffer=None):
         """Optimized frame to numpy array conversion that minimizes GIL holding time.
         
@@ -745,6 +757,8 @@ cdef class SyncMultiFrameListener(FrameListener):
         """
         self.ptr.release(frame_map.internal_frame_map)
 
+    @cython.boundscheck(False)  # Safe: internal frame processing only
+    @cython.wraparound(False)   # Safe: no negative indexing
     def waitForNewFrameOptimized(self, color_buffer=None, depth_buffer=None, ir_buffer=None, int milliseconds=100):
         """Optimized frame capture that minimizes GIL holding time.
         
